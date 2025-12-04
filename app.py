@@ -4,7 +4,7 @@ import os
 import time
 
 # --- IMPORT HELPER FUNCTIONS ---
-# This structure handles the final execution error.
+# This structure imports the functions directly, bypassing the problematic 'subprocess' calls.
 try:
     from scraper import hunt_fsbo_deep
     from geocoder import run_geocoder
@@ -14,38 +14,41 @@ except Exception:
 
 
 # --- PAGE SETTINGS ---
-st.set_page_config(page_title="MTL FSBO Hunter v1.3", page_icon="🏡", layout="wide")
+st.set_page_config(page_title="MTL FSBO Hunter v1.4", page_icon="🏡", layout="wide")
 
 # --- HEADER ---
-st.title("🏡 FSBO Hunter v1.3") 
+st.title("🏡 FSBO Hunter v1.4") 
 st.write("Montreal / NDG / CDN")
 st.divider()
 
 # --- EXECUTION LOGIC ---
 if SUCCESSFUL_IMPORT:
     if st.button("START HUNT", type="primary"):
-        status_box = st.status("Starting the hunt...", expanded=True)
         
-        # 1. RUN SCRAPER 
-        status_box.write("🕷️ Hunting on DuProprio...")
-        try:
-            hunt_fsbo_deep() 
-            status_box.write("✅ Scraper finished.")
-        except Exception as e:
-            status_box.error(f"❌ Scraper Execution Failed. Error: {e}")
-            st.stop()
-        
-        # 2. RUN GEOCODER 
-        status_box.write("📍 Finding GPS Coordinates...")
-        try:
-            run_geocoder()
-            status_box.write("✅ Geocoding finished.")
-        except Exception as e:
-            status_box.error(f"❌ Geocoding Failed. Error: {e}")
-            st.stop()
+        # Display the status box
+        with st.status("Starting the hunt...", expanded=True) as status_box:
+            
+            # 1. RUN SCRAPER 
+            status_box.write("🕷️ Hunting on DuProprio...")
+            try:
+                hunt_fsbo_deep() 
+                status_box.write("✅ Scraper finished.")
+            except Exception as e:
+                status_box.error(f"❌ Scraper Execution Failed. Error: {e}")
+                st.stop()
+            
+            # 2. RUN GEOCODER 
+            status_box.write("📍 Finding GPS Coordinates...")
+            try:
+                run_geocoder()
+                status_box.write("✅ Geocoding finished.")
+            except Exception as e:
+                status_box.error(f"❌ Geocoding Failed. Error: {e}")
+                st.stop()
 
-        status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
-        st.rerun() 
+            status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
+            time.sleep(1)
+            st.rerun() # Forces the display section to reload and show the new CSV
         
 
 # --- DISPLAY RESULTS ---
@@ -60,6 +63,7 @@ if os.path.exists(output_file):
         
         # 1. MAP VIEW (Robust Map Display)
         map_df = df.copy()
+        # Convert columns to numeric, coercing errors to NaN
         map_df['latitude'] = pd.to_numeric(map_df['latitude'], errors='coerce')
         map_df['longitude'] = pd.to_numeric(map_df['longitude'], errors='coerce')
         map_df.dropna(subset=['latitude', 'longitude'], inplace=True)
@@ -67,10 +71,14 @@ if os.path.exists(output_file):
         if not map_df.empty:
             st.subheader(f"📍 Map View ({len(map_df)} Geocoded Listings)")
             
+            # Calculate the average center for automatic zoom-in
+            avg_lat = map_df['latitude'].mean()
+            avg_lon = map_df['longitude'].mean()
+            
             st.map(
                 map_df, 
-                latitude='latitude', 
-                longitude='longitude', 
+                latitude=avg_lat, 
+                longitude=avg_lon, 
                 zoom=11, 
                 use_container_width=True
             )
