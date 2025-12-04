@@ -1,4 +1,3 @@
-#import pandas as pd
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
@@ -29,13 +28,12 @@ def clean_address(raw_address):
     replacements = {
         "Montp": "Montpetit",
         "Mountain Sight": "Mountain Sights",
-        "Mountain Sightss": "Mountain Sights", # Fixes the double 'ss' typo
+        "Mountain Sightss": "Mountain Sights", 
         "Ch.": "Chemin",
         "Boul.": "Boulevard",
         "Ave.": "Avenue",
         " Av ": " Avenue ",
         "Avenue De Marlowe": "Avenue Marlowe",
-        # Fix for the address that crashed the script
         "Chemin De La Cote Saint": "Chemin de la Côte-Saint-Luc" 
     }
     
@@ -59,12 +57,12 @@ def clean_address(raw_address):
 # MAIN EXECUTION
 # ==========================================
 def run_geocoder():
-    print("🗺️ Loading listings...")
+    # We remove 'print' statements here as they conflict with Streamlit's internal logging
+    # and use the Streamlit status box in app.py instead.
     
     try:
         df = pd.read_csv(INPUT_FILE)
     except FileNotFoundError:
-        print(f"❌ Error: Could not find '{INPUT_FILE}'. Please check the filename.")
         return
 
     # Normalize Column Names
@@ -80,12 +78,8 @@ def run_geocoder():
             break
             
     if address_col is None:
-        print("❌ CRITICAL ERROR: Could not find an address column.")
         sys.exit()
 
-    print(f"    ✅ Using column: '{address_col}'")
-
-    # --- FIX: Set a longer timeout (10 seconds) to prevent crashes ---
     geolocator = Nominatim(user_agent="my_montreal_fsbo_project", timeout=10)
     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.5)
 
@@ -93,21 +87,15 @@ def run_geocoder():
     longitudes = []
     clean_addresses = []
 
-    print(f"📍 Finding coordinates for {len(df)} properties...")
-
     for index in df.index:
         raw_addr = df.at[index, address_col]
         clean_addr = clean_address(raw_addr)
 
         if clean_addr is None:
-            # print(f"    🗑️ Skipping Junk: '{raw_addr}'") # Optional: Uncomment to see skipped junk
             latitudes.append(None)
             longitudes.append(None)
             clean_addresses.append(None)
             continue
-
-        if clean_addr != raw_addr:
-            print(f"    🧹 Cleaning '{raw_addr}' -> '{clean_addr}'")
 
         try:
             # Try with City Suffix
@@ -118,19 +106,15 @@ def run_geocoder():
                 location = geocode(clean_addr)
 
             if location:
-                print(f"    ✅ Found: {clean_addr}")
                 latitudes.append(location.latitude)
                 longitudes.append(location.longitude)
                 clean_addresses.append(clean_addr)
             else:
-                print(f"    ⚠️ STILL NOT FOUND: {clean_addr}")
                 latitudes.append(None)
                 longitudes.append(None)
                 clean_addresses.append(clean_addr)
 
-        except Exception as e:
-            # This catches timeouts so the script doesn't crash completely
-            print(f"    ❌ Error on '{clean_addr}': {e}")
+        except Exception:
             latitudes.append(None)
             longitudes.append(None)
             clean_addresses.append(clean_addr)
@@ -143,6 +127,3 @@ def run_geocoder():
     df_clean = df.dropna(subset=['latitude', 'longitude'])
     
     df_clean.to_csv(OUTPUT_FILE, index=False)
-    
-    print("\n==============================")
-    print(f"🎉 DONE! Saved {len(df_clean)} locations to '{OUTPUT_FILE}'")
