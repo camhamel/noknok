@@ -11,12 +11,11 @@ try:
     from geocoder import run_geocoder
     SUCCESSFUL_IMPORT = True
 except ModuleNotFoundError as e:
-    st.error(f"FATAL: One of your helper files failed to import. Please check that 'scraper.py' and 'geocoder.py' are committed to the main repository folder. Details: {e}")
+    st.error(f"FATAL: One of your helper files failed to import. Check paths. Details: {e}")
     SUCCESSFUL_IMPORT = False
 
 
 # --- PAGE SETTINGS ---
-# v1.3 is the final fix version for the title.
 st.set_page_config(page_title="MTL FSBO Hunter v1.3", page_icon="🏡", layout="wide")
 
 # --- HEADER ---
@@ -36,9 +35,8 @@ if SUCCESSFUL_IMPORT:
             status_box.write("✅ Scraper finished.")
         except Exception as e:
             status_box.error(f"❌ Scraper Execution Failed. Check scraper.py logic or site blocking. Error: {e}")
-            st.stop() # Stop execution if scraping failed
+            st.stop()
         
-
         # 2. RUN GEOCODER 
         status_box.write("📍 Finding GPS Coordinates...")
         try:
@@ -46,7 +44,7 @@ if SUCCESSFUL_IMPORT:
             status_box.write("✅ Geocoding finished.")
         except Exception as e:
             status_box.error(f"❌ Geocoding Failed. Check geocoder.py logic. Error: {e}")
-            st.stop() # Stop execution if geocoding failed
+            st.stop()
 
         status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
         st.rerun() # Forces the display section to reload and show the new CSV
@@ -62,9 +60,9 @@ if os.path.exists(output_file):
     try:
         df = pd.read_csv(output_file)
         
-        # 1. MAP VIEW (Robust Map Display)
-        # Explicitly converts columns to numeric and drops any NaN rows for the map
+        # 1. MAP VIEW (Robust Map Display with numeric conversion)
         map_df = df.copy()
+        # Convert columns to numeric, coercing errors to NaN
         map_df['latitude'] = pd.to_numeric(map_df['latitude'], errors='coerce')
         map_df['longitude'] = pd.to_numeric(map_df['longitude'], errors='coerce')
         map_df.dropna(subset=['latitude', 'longitude'], inplace=True)
@@ -76,8 +74,26 @@ if os.path.exists(output_file):
                 map_df, 
                 latitude='latitude', 
                 longitude='longitude', 
-                zoom=11, # Forced zoom for local visibility
+                zoom=11, 
                 use_container_width=True
             )
         else:
-            st.warning("All addresses failed geocoding. Data saved, but map cannot be drawn
+            # THIS IS THE FIXED LINE (Line 83 area)
+            st.warning("All addresses failed geocoding. Data saved, but map cannot be drawn.") 
+
+        # 2. LIST VIEW (Data Table)
+        st.subheader("📋 Listing Details")
+        st.dataframe(
+            df[['clean_address', 'price_text', 'link']],
+            column_config={
+                "link": st.column_config.LinkColumn("Listing Link"),
+                "clean_address": "Address",
+                "price_text": "Price"
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"Error reading or displaying data: {e}")
+else:
+    st.info("No data found yet. Click 'START HUNT' above.")
