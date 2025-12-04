@@ -4,14 +4,12 @@ import os
 import time
 
 # --- IMPORT HELPER FUNCTIONS ---
-# This must happen first to ensure the app can access the logic in the other files.
+# This structure imports the functions directly, bypassing the problematic 'subprocess' calls.
 try:
-    # Ensure scraper.py and geocoder.py are in the main repository folder
     from scraper import hunt_fsbo_deep
     from geocoder import run_geocoder
     SUCCESSFUL_IMPORT = True
-except ModuleNotFoundError as e:
-    st.error(f"FATAL: One of your helper files failed to import. Check paths. Details: {e}")
+except Exception:
     SUCCESSFUL_IMPORT = False
 
 
@@ -25,30 +23,40 @@ st.divider()
 
 # --- EXECUTION LOGIC ---
 if SUCCESSFUL_IMPORT:
-    if st.button("START HUNT", type="primary"):
-        status_box = st.status("Starting the hunt...", expanded=True)
-        
-        # 1. RUN SCRAPER 
-        status_box.write("🕷️ Hunting on DuProprio...")
-        try:
-            hunt_fsbo_deep() 
-            status_box.write("✅ Scraper finished.")
-        except Exception as e:
-            status_box.error(f"❌ Scraper Execution Failed. Check scraper.py logic or site blocking. Error: {e}")
-            st.stop()
-        
-        # 2. RUN GEOCODER 
-        status_box.write("📍 Finding GPS Coordinates...")
-        try:
-            run_geocoder()
-            status_box.write("✅ Geocoding finished.")
-        except Exception as e:
-            status_box.error(f"❌ Geocoding Failed. Check geocoder.py logic. Error: {e}")
-            st.stop()
+    # Use st.session_state to prevent the search from running every time the page refreshes
+    if 'data_status' not in st.session_state:
+        st.session_state.data_status = "READY"
 
-        status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
-        st.rerun() # Forces the display section to reload and show the new CSV
+    if st.button("START HUNT", type="primary"):
+        st.session_state.data_status = "RUNNING"
         
+        # Display the status box
+        with st.status("Starting the hunt...", expanded=True) as status_box:
+            
+            # 1. RUN SCRAPER 
+            status_box.write("🕷️ Hunting on DuProprio...")
+            try:
+                hunt_fsbo_deep() 
+                status_box.write("✅ Scraper finished.")
+            except Exception as e:
+                status_box.error(f"❌ Scraper Execution Failed. Error: {e}")
+                st.session_state.data_status = "FAILED"
+                st.stop()
+            
+            # 2. RUN GEOCODER 
+            status_box.write("📍 Finding GPS Coordinates...")
+            try:
+                run_geocoder()
+                status_box.write("✅ Geocoding finished.")
+            except Exception as e:
+                status_box.error(f"❌ Geocoding Failed. Error: {e}")
+                st.session_state.data_status = "FAILED"
+                st.stop()
+            
+            st.session_state.data_status = "SUCCESS"
+            status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
+            time.sleep(1)
+            st.rerun() # Forces the app to reload and display the new CSV
 
 # --- DISPLAY RESULTS ---
 st.divider()
@@ -56,11 +64,13 @@ st.write("### 📋 Active Listings")
 
 output_file = 'fsbo_map_data.csv'
 
-if os.path.exists(output_file):
+if not SUCCESSFUL_IMPORT:
+    st.error("CRITICAL ERROR: Application files (scraper.py or geocoder.py) could not be loaded. Please re-commit the latest clean versions.")
+elif os.path.exists(output_file):
     try:
         df = pd.read_csv(output_file)
         
-        # 1. MAP VIEW (Robust Map Display with numeric conversion)
+        # 1. MAP VIEW (Robust Map Display)
         map_df = df.copy()
         # Convert columns to numeric, coercing errors to NaN
         map_df['latitude'] = pd.to_numeric(map_df['latitude'], errors='coerce')
@@ -70,6 +80,7 @@ if os.path.exists(output_file):
         if not map_df.empty:
             st.subheader(f"📍 Map View ({len(map_df)} Geocoded Listings)")
             
+            # This map configuration ensures a good view of Montreal and uses the correct column names
             st.map(
                 map_df, 
                 latitude='latitude', 
@@ -78,15 +89,19 @@ if os.path.exists(output_file):
                 use_container_width=True
             )
         else:
-            # THIS IS THE FIXED LINE (Line 83 area)
+            # FIX FOR SYNTAX ERROR: The string is properly closed with a quote mark
             st.warning("All addresses failed geocoding. Data saved, but map cannot be drawn.") 
 
-        # 2. LIST VIEW (Data Table)
+        # 2. LIST VIEW (Data Table with Clickable Links)
         st.subheader("📋 Listing Details")
         st.dataframe(
-            df[['clean_address', 'price_text', 'link']],
+            df,
             column_config={
-                "link": st.column_config.LinkColumn("Listing Link"),
+                "link": st.column_config.LinkColumn(
+                    "Listing Link",
+                    help="Click to view DuProprio listing",
+                    display_text="View Listing" 
+                ),
                 "clean_address": "Address",
                 "price_text": "Price"
             },
@@ -94,6 +109,6 @@ if os.path.exists(output_file):
             use_container_width=True
         )
     except Exception as e:
-        st.error(f"Error reading or displaying data: {e}")
+        st.error(f"Error reading or displaying data. Try running 'START HUNT' again. Error: {e}")
 else:
     st.info("No data found yet. Click 'START HUNT' above.")
