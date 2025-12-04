@@ -133,5 +133,4 @@ def hunt_fsbo_deep():
     else:
         print("❌ No listings found.")
 
-if __name__ == "__main__":
     hunt_fsbo_deep()
