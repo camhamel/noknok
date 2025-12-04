@@ -6,7 +6,6 @@ import random
 
 def hunt_fsbo_deep():
     # --- CONFIGURATION ---
-    # NDG / CDN (Code 1883)
     base_url = "https://duproprio.com/fr/rechercher/liste?search=true&cities%5B0%5D=1883&parent=1&sort=-published_at"
 
     headers = {
@@ -17,22 +16,15 @@ def hunt_fsbo_deep():
     page_number = 1
     keep_hunting = True
 
-    # Note: These 'print' statements will now go to the Streamlit logs (Manage App -> Logs)
-    print(f"🚀 STARTING DEEP HUNT: NDG (Code 1883)")
-    print("="*40)
-
     while keep_hunting:
         # Pagination Logic
         separator = "&" if "?" in base_url else "?"
         target_url = f"{base_url}{separator}pageNumber={page_number}"
         
-        print(f"🔎 Scanning Page {page_number}...")
-        
         try:
             response = requests.get(target_url, headers=headers)
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # --- Find the Listing CARDS first ---
             cards = soup.find_all('li', class_='search-results-listings-list__item')
             
             found_on_page = 0
@@ -60,12 +52,10 @@ def hunt_fsbo_deep():
                         # 2. FIND THE PRICE
                         price_text = "Price Unknown"
                         
-                        # Strategy A: Look for the specific price class
                         price_tag = card.find(class_='search-results-listings-list__item-description__price')
                         if price_tag:
                             price_text = price_tag.get_text(strip=True).replace('\xa0', ' ')
                         else:
-                            # Strategy B: Fallback - Scan all text in card for a '$'
                             for s in card.stripped_strings:
                                 if '$' in s:
                                     price_text = s.replace('\xa0', ' ')
@@ -91,15 +81,11 @@ def hunt_fsbo_deep():
                         }
                         found_on_page += 1
 
-                except Exception as e:
-                    print(f"    ⚠️ Error parsing a card: {e}")
+                except Exception:
                     continue
-
-            print(f"    found {found_on_page} new listings.")
 
             # Stop if page is empty or we hit page limit
             if found_on_page == 0:
-                print("🛑 No more results found. Stopping.")
                 keep_hunting = False
             else:
                 page_number += 1
@@ -108,23 +94,13 @@ def hunt_fsbo_deep():
                 if page_number > 20: 
                     keep_hunting = False
 
-        except Exception as e:
-            print(f"❌ ERROR on Page {page_number}: {e}")
+        except Exception:
             keep_hunting = False
 
     # SAVE RESULTS
     df = pd.DataFrame(properties.values())
     
     if not df.empty:
-        # Renaming columns for compatibility
         df.columns = ['address', 'price_text', 'link']
-        
-        # Filter out empty addresses
         df = df[df['address'] != "Address Unknown"]
-        
         df.to_csv("fsbo_listings.csv", index=False)
-        print("="*40)
-        print(f"🎉 GRAND TOTAL: Found {len(df)} listings in NDG.")
-        print(f"💾 Saved to 'fsbo_listings.csv'")
-    else:
-        print("❌ No listings found.")
