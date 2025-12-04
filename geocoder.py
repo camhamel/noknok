@@ -1,4 +1,6 @@
+#(old)import pandas as pd
 import pandas as pd
+#(old)from geopy.geocoders import Nominatim
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 import re
