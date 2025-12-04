@@ -17,6 +17,7 @@ def hunt_fsbo_deep():
     page_number = 1
     keep_hunting = True
 
+    # Note: These 'print' statements will now go to the Streamlit logs (Manage App -> Logs)
     print(f"🚀 STARTING DEEP HUNT: NDG (Code 1883)")
     print("="*40)
 
