@@ -8,7 +8,7 @@ import time
 st.set_page_config(page_title="MTL FSBO Hunter", page_icon="🏡", layout="centered")
 
 # --- HEADER ---
-st.title("🏡 FSBO Hunter")
+st.title("🏡 FSBO Hunter v.0.1")
 st.write("Montreal / NDG / CDN")
 
 # --- ACTION SECTION ---
