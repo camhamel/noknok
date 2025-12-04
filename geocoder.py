@@ -57,8 +57,6 @@ def clean_address(raw_address):
 # MAIN EXECUTION
 # ==========================================
 def run_geocoder():
-    # We remove 'print' statements here as they conflict with Streamlit's internal logging
-    # and use the Streamlit status box in app.py instead.
     
     try:
         df = pd.read_csv(INPUT_FILE)
