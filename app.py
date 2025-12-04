@@ -3,91 +3,63 @@ import pandas as pd
 import subprocess
 import os
 import time
-import pandas as pd # KEEP THIS LINE
-import streamlit as st 
-# ... rest of the app.py code
+
+# --- DIRECTLY IMPORT THE FUNCTIONS ---
+# This bypasses the shell/subprocess execution entirely.
+try:
+    from scraper import hunt_fsbo_deep
+    from geocoder import run_geocoder
+    SUCCESSFUL_IMPORT = True
+except ModuleNotFoundError as e:
+    st.error(f"FATAL: One of your helper files failed to import. Check scraper.py or geocoder.py for errors. Details: {e}")
+    SUCCESSFUL_IMPORT = False
+
 
 # --- PAGE SETTINGS ---
 st.set_page_config(page_title="MTL FSBO Hunter", page_icon="🏡", layout="centered")
 
-# --- HEADER ---
-st.title("🏡 FSBO Hunter v.0.1")
+# --- UI HEADER ---
+st.title("🏡 FSBO Hunter v1.1") 
 st.write("Montreal / NDG / CDN")
-
-# --- ACTION SECTION ---
 st.divider()
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.write("### 🚀 Update Listings")
-    st.caption("Runs Scraper + Geocoder")
-
-with col2:
-    start_btn = st.button("START HUNT", type="primary")
 
 # --- EXECUTION LOGIC ---
-if start_btn:
-    status_box = st.status("Starting the hunt...", expanded=True)
-    
-    # 1. RUN SCRAPER
-    status_box.write("🕷️ Hunting on DuProprio (scraper.py)...")
-    try:
-        # Run scraper.py
-        result_scraper = subprocess.run(["python", "scraper.py"], capture_output=True, text=True)
-        # Check if it worked
-        if result_scraper.returncode == 0:
-            status_box.write("✅ Scraper finished.")
-        else:
-            status_box.error("❌ Scraper failed.")
-            st.code(result_scraper.stderr) # Show error details
-    except Exception as e:
-        status_box.error(f"Could not run scraper: {e}")
+if SUCCESSFUL_IMPORT:
+    if st.button("START HUNT", type="primary"):
+        status_box = st.status("Starting the hunt...", expanded=True)
+        
+        # 1. RUN SCRAPER (Direct Call)
+        status_box.write("🕷️ Hunting on DuProprio...")
+        # Your scraper function should now save to 'fsbo_listings.csv'
+        hunt_fsbo_deep() 
+        status_box.write("✅ Scraper finished. (Check logs for DuProprio errors)")
 
-    # 2. RUN GEOCODER
-    status_box.write("📍 Finding GPS Coordinates (geocoder.py)...")
-    try:
-        # Run geocoder.py
-        result_geo = subprocess.run(["python", "geocoder.py"], capture_output=True, text=True)
-        if result_geo.returncode == 0:
-            status_box.write("✅ Geocoding finished.")
-        else:
-            status_box.error("❌ Geocoder failed.")
-            st.code(result_geo.stderr)
-    except Exception as e:
-        status_box.error(f"Could not run geocoder: {e}")
+        # 2. RUN GEOCODER (Direct Call)
+        status_box.write("📍 Finding GPS Coordinates...")
+        # Your geocoder function should now read that CSV and save to 'fsbo_map_data.csv'
+        run_geocoder()
+        status_box.write("✅ Geocoding finished.")
 
-    status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
-    time.sleep(1)
-    st.rerun()
+        status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
+        st.rerun()
+else:
+    st.warning("Cannot start the app due to helper file errors. Please check GitHub console.")
+
 
 # --- DISPLAY RESULTS ---
 st.divider()
 st.write("### 📋 Active Listings")
 
-output_file = 'fsbo_map_data.csv' 
+output_file = 'fsbo_map_data.csv'
 
 if os.path.exists(output_file):
     try:
         df = pd.read_csv(output_file)
+        st.map(df.dropna(subset=['latitude', 'longitude']), zoom=12)
         
-        # 1. MAP VIEW
-        if 'latitude' in df.columns and 'longitude' in df.columns:
-            st.map(df.dropna(subset=['latitude', 'longitude']), zoom=12)
-        else:
-            st.warning("Map data missing (lat/lon).")
-
-        # 2. LIST VIEW
-        display_cols = ['clean_address', 'price_text', 'link']
-        # Filter to exist columns only
-        valid_cols = [c for c in display_cols if c in df.columns]
-
         st.dataframe(
-            df[valid_cols],
-            column_config={
-                "link": st.column_config.LinkColumn("Listing Link"),
-                "clean_address": "Address",
-                "price_text": "Price"
-            },
+            df[['clean_address', 'price_text', 'link']],
+            column_config={"link": st.column_config.LinkColumn("Listing Link")},
             hide_index=True,
             use_container_width=True
         )
