@@ -3,6 +3,9 @@ import pandas as pd
 import subprocess
 import os
 import time
+import pandas as pd # KEEP THIS LINE
+import streamlit as st 
+# ... rest of the app.py code
 
 # --- PAGE SETTINGS ---
 st.set_page_config(page_title="MTL FSBO Hunter", page_icon="🏡", layout="centered")
