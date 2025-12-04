@@ -1,6 +1,5 @@
-streamlit
-pandas
 geopy
 requests
 beautifulsoup4
 folium
+
