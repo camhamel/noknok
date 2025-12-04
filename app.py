@@ -4,7 +4,7 @@ import os
 import time
 
 # --- IMPORT HELPER FUNCTIONS ---
-# This structure imports the functions directly, bypassing the problematic 'subprocess' calls.
+# This structure imports the functions directly, bypassing the subprocess calls.
 try:
     from scraper import hunt_fsbo_deep
     from geocoder import run_geocoder
@@ -24,8 +24,6 @@ st.divider()
 # --- EXECUTION LOGIC ---
 if SUCCESSFUL_IMPORT:
     if st.button("START HUNT", type="primary"):
-        
-        # Display the status box
         with st.status("Starting the hunt...", expanded=True) as status_box:
             
             # 1. RUN SCRAPER 
@@ -48,7 +46,7 @@ if SUCCESSFUL_IMPORT:
 
             status_box.update(label="🎉 Hunt Complete!", state="complete", expanded=False)
             time.sleep(1)
-            st.rerun() # Forces the display section to reload and show the new CSV
+            st.rerun() 
         
 
 # --- DISPLAY RESULTS ---
@@ -57,13 +55,14 @@ st.write("### 📋 Active Listings")
 
 output_file = 'fsbo_map_data.csv'
 
-if os.path.exists(output_file):
+if not SUCCESSFUL_IMPORT:
+    st.error("CRITICAL ERROR: Application files (scraper.py or geocoder.py) could not be loaded.")
+elif os.path.exists(output_file):
     try:
         df = pd.read_csv(output_file)
         
-        # 1. MAP VIEW (Robust Map Display)
+        # 1. MAP VIEW (Auto-Centered and Robust)
         map_df = df.copy()
-        # Convert columns to numeric, coercing errors to NaN
         map_df['latitude'] = pd.to_numeric(map_df['latitude'], errors='coerce')
         map_df['longitude'] = pd.to_numeric(map_df['longitude'], errors='coerce')
         map_df.dropna(subset=['latitude', 'longitude'], inplace=True)
@@ -71,7 +70,7 @@ if os.path.exists(output_file):
         if not map_df.empty:
             st.subheader(f"📍 Map View ({len(map_df)} Geocoded Listings)")
             
-            # Calculate the average center for automatic zoom-in
+            # Calculate the average center of the found properties
             avg_lat = map_df['latitude'].mean()
             avg_lon = map_df['longitude'].mean()
             
