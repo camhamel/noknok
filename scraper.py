@@ -1,5 +1,5 @@
 import requests
-from bs4 import BeautifulSoup
+import bs4 import BeautifulSoup
 import pandas as pd
 import time
 import random
